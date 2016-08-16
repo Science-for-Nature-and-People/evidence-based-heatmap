@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>SNAP Evidence Based Heatmap </title>
+     <style>
+      /* disable text selection */
+      svg *::selection {
+         background: transparent;
+      }
+     
+      svg *::-moz-selection {
+         background: transparent;
+      } 
+     
+      svg *::-webkit-selection {
+         background: transparent;
+      }
+      rect.selection {
+        stroke          : #333;
+        stroke-dasharray: 4px;
+        stroke-opacity  : 1;
+        fill            : transparent;
+      }
+
+      rect.cell-border {
+        stroke: #eee;
+        stroke-width:0.75px;   
+      }
+
+      rect.cell-selected {
+        stroke: #b35806;
+        stroke-width:2px;   
+      }
+
+      rect.cell-hover {
+        stroke: #F00;
+        stroke-width:0.75px;   
+      }
+
+      text.mono {
+        font-size: 11pt;
+        font-family: "Trebuchet MS", Segoe, "Segoe UI", "DejaVu Sans", Verdana, sans-serif;
+        fill: #aaa;
+      }
+
+      text.label {
+        font-size: 13pt;
+        font-family: "Trebuchet MS", Segoe, "Segoe UI", "DejaVu Sans", Verdana, sans-serif;
+        font-weight: bold;
+        fill: #aaa;
+      }
+
+      text.legend {
+        font-size: 10pt;
+        font-family: "Trebuchet MS", Segoe, "Segoe UI", "DejaVu Sans", Verdana, sans-serif;
+        text-align: center;
+        text-justify: inter-word;
+        fill: #aaa;
+      }
+
+      text.text-selected {
+        fill: #000;
+      }
+
+      text.text-highlight {
+        fill: #b35806;
+      }
+      text.text-hover {
+        fill: #00441b;
+      }
+      #tooltip {
+        position: absolute;
+        width: auto;
+        height: auto;
+        overflow-y: hidden;
+        overflow-x: hidden;
+        background-color: white; 
+        -webkit-border-radius: 10px;
+        -moz-border-radius: 10px;
+        border-radius: 10px;
+        -webkit-box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.4);
+        -moz-box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.4);
+        box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.4);
+        
+      }
+      #tooltip a {
+        color: #00441b;
+        display: block;
+        margin-bottom: 0.4em;
+        text-decoration:none;
+        
+      }
+
+      #tooltip  a:hover {
+        color:  #b35806;
+        
+      }
+      .title_study {
+        background-color: #B0B0B0;
+        color: #fff;
+        font-size: 14px;
+        line-height: 20px;
+        padding: 8px;
+        text-decoration:none;
+      }
+      .nb_study {
+        font-size: 16px;
+        line-height: 22px;
+        text-align: center;
+        padding: 8px;
+        text-decoration:none;
+      }
+
+      #tooltip.hidden {
+        display: none;
+      }
+
+      #tooltip p {
+        margin: 0;
+        font:0.929em/1.231 "Trebuchet MS", Segoe, "Segoe UI", "DejaVu Sans", Verdana, sans-serif;
+        font-size: 14px;
+        line-height: 15px; 
+      }
+
+      h3 {
+        font-family: "Trebuchet MS", Segoe, "Segoe UI", "DejaVu Sans", Verdana, sans-serif;
+        font-weight: bold;
+      }
+    </style>
+
+</head>
+
+<body>
+
+<div id="tooltip" class="hidden">
+        <p><span id="value"></p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.5/d3.min.js"></script>
+
+<h3>Visualizing Conservation Interventions and Outcomes</h3>
+<br>
+<br>
+
+<div style="font-family:Trebuchet MS"><b>Order:</b> 
+<select id="order">
+  <option value="null" selected> ----- </option>
+  <option value="Intervention_number">Reset Intervention Order</option>
+  <option value="Outcome_number">Reset Outcome Order</option>
+  <option value="All">Reset All Order</option>
+</select>
+</div>
+<div id="chart" style='width:960px; height:800px;'></div>
+<script type="text/javascript">
+var margin = { top: 250, right: 10, bottom: 50, left: 200 },
+  cellSize=30;
+  col_number=24;
+  row_number=11;
+  width = cellSize*col_number, // - margin.left - margin.right,
+  height = cellSize*row_number , // - margin.top - margin.bottom,
+  //gridSize = Math.floor(width / 24),
+  legendElementWidth = cellSize*2,
+  colorBuckets = 7,
+  colors = ['#c7e9c0','#a1d99b','#74c476','#41ab5d','#238b45','#005a32','#00441b'] //green
+  //colors = ['#eff3ff','#c6dbef','#9ecae1','#6baed6','#4292c6','#2171b5','#084584'];
+  //colors = ['#084584','#2171b5','#4292c6','#6baed6','#9ecae1','#c6dbef','#eff3ff']; //blue
+  //colors = ['#b35806','#f1a340','#fee0b6','#f7f7f7','#d8daeb','#998ec3','#542788']; //orange-purple
+  //colors = ['#4a1486','#6a51a3','#807dba','#9e9ac8','#bcbddc','#dadaeb','#f2f0f7']; //purple
+  hcrow = [1,2,3,4,5,6,7,8,9,10,11,12], 
+  hccol = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24], 
+  rowLabel = ['Culture','Economic','Education','Environmental','Freedom of Choice','Governance','Health','Material','Other','Security & safety','Social cohesion','Subjective well-being'], 
+  colLabel = ['Area management','Area protection','Awareness & comms','Compliance & enforcement','Conservation finance','Formal education','Institutional & civil society development','Legislation','Enterprises & livelihood alternatives','Market forces','Non monetary values','Other','Partnership & alliance development','Policies & regulations','Private sector standards & codes','Resource protection & management','Restoration','Species control','Species management','Species recovery','Species re-introduction','Substitution','Sustainable use','Training'];
+
+
+
+d3.tsv("join_to_the_world_jb4.tsv",
+    function(d) {
+      console.log(d.DOI_link);
+      return {
+        row:   +d.Outcome_number,
+        col:   +d.Intervention_number,
+        value: +d.count,
+        value_url: d.count_link,
+        //text_url: d.DOI_link //.split(',')
+        //text_url: ["<a href='http://gooogle.com'>Try clicking here</a>","<a href='https://www.nceas.ucsb.edu/portal/12696'>Try clicking there</a>"]
+      };
+    },
+
+  function(error, data) {
+    var breakList = [0,6,11,26,51,101,210]
+    var colorScale = d3.scale.threshold()
+        .domain(breakList)
+        .range(colors);
+    
+    var svg = d3.select("#chart").append("svg")
+        .attr("width", width + margin.left + margin.right + 100)
+        .attr("height", height + margin.top + margin.bottom)
+        .append("g")
+        .attr("transform", "translate(" + margin.left + "," + margin.top + ")")
+        ;
+    var rowSortOrder=false;
+    var colSortOrder=false;
+    var rowLabels = svg.append("g")
+        .selectAll(".rowLabelg")
+        .data(rowLabel)
+        .enter()
+        .append("text")
+        .text(function (d) { return d; })
+        .attr("x", 0)
+        .attr("y", function (d, i) { return hcrow.indexOf(i+1) * cellSize; })
+        .style("text-anchor", "end")
+        .attr("transform", "translate(-6," + cellSize / 1.5 + ")")
+        .attr("class", function (d,i) { return "rowLabel mono r"+i;} ) 
+        .on("mouseover", function(d) {d3.select(this).classed("text-hover",true);})
+        .on("mouseout" , function(d) {d3.select(this).classed("text-hover",false);})
+        .on("click", function(d,i) {rowSortOrder=!rowSortOrder; sortbylabel('r',i,rowSortOrder);
+        d3.select("#order").
+        property("selectedIndex", 4).
+        node().
+        focus();;})
+        ;
+  
+    var colLabels = svg.append("g")
+        .selectAll(".colLabelg")
+        .data(colLabel)
+        .enter()
+        .append("text")
+        .text(function (d) { return d; })
+        .attr("x", 0)
+        .attr("y", function (d, i) { return hccol.indexOf(i+1) * cellSize; })
+        .style("text-anchor", "left")
+        .attr("transform", "translate("+cellSize/2 + ",-6) rotate (-90)")
+        .attr("class",  function (d,i) { return "colLabel mono c"+i;} )
+        .on("mouseover", function(d) {d3.select(this).classed("text-hover",true);})
+        .on("mouseout" , function(d) {d3.select(this).classed("text-hover",false);})
+        .on("click", function(d,i) {colSortOrder=!colSortOrder;  sortbylabel("c",i,colSortOrder);
+        d3.select("#order")
+        .property("selectedIndex", 4)
+        .node().
+        focus();;})
+        ;
+    // Create the Heatmap
+    var heatMap = svg.append("g").attr("class","g3")
+          .selectAll(".cellg")
+          .data(data)//,function(d){return d.row+":"+d.col;})
+          .enter()
+          .append("rect")
+          .attr("class", "cell-hover")
+          .attr("data-tooltip",function(d) {return d.value})
+          .attr("x", function(d) { return hccol.indexOf(d.col) * cellSize; })
+          .attr("y", function(d) { return hcrow.indexOf(d.row) * cellSize; })
+          .attr("class", function(d){return "cell cell-border cr"+(d.row-1)+" cc"+(d.col-1);})
+          .attr("width", cellSize)
+          .attr("height", cellSize)
+          .style("fill", function(d) {
+            var colorFill = colorScale(d.value);
+            if(d.value < 1){
+              colorFill = colors[0];
+            } 
+            return colorFill; })
+          //.style("fill", function(d) { return colorScale(d.value); })
+          .on("mouseover", function(d) {d3.select(this).classed("cell-hover",true);})
+          .on("mouseout" , function(d) {d3.select(this).classed("cell-hover",false);})  
+          .on("click", function(d){
+             if(d3.select(this).classed("cell-selected")){
+              d3.select(this).classed("cell-selected",false);
+                  d3.selectAll(".rowLabel").classed("text-highlight",false);
+                  d3.selectAll(".colLabel").classed("text-highlight",false);
+                  d3.select("#tooltip").classed("hidden", true);
+             }
+             else{
+                //highlight text
+                d3.select(this).classed("cell-selected",true);
+                d3.selectAll(".rowLabel").classed("text-highlight",function(r,ri){ return ri==(d.row-1);});
+                d3.selectAll(".colLabel").classed("text-highlight",function(c,ci){ return ci==(d.col-1);});
+                //d3.selectAll("body").classed("cell-hover", true);                 
+                // Clean up the previous tooltips
+                d3.select("#tooltip").selectAll('div').remove();
+
+                 //Update the tooltip position and value
+                d3.select("#tooltip")
+                   .style("left", (d3.event.pageX+10) + "px")
+                   .style("top", (d3.event.pageY-10) + "px")
+                   .select("#value")
+                   .append("div")
+                   /*.text(function(){
+                      return colLabel[d.col-1].concat(' / ')})
+                   .attr("class","title_study")
+                   .append("div")
+                   .text(function(){
+                      return rowLabel[d.row-1]
+                    }).attr("class","title_study");*/
+              
+                   
+                   .text(function(){
+                      return colLabel[d.col-1].concat(' -- ',rowLabel[d.row-1]);
+                         })
+                   .attr("class","title_study");
+
+                d3.select("#tooltip")
+                   .style("left", (d3.event.pageX+10) + "px")
+                   .style("top", (d3.event.pageY-10) + "px")
+                   .select("#value")
+                   .append("div")
+                   .html(function(){
+                    return d.value_url
+                    })
+                   .attr("class","nb_study");
+
+                 //Show the tooltip
+                 d3.select("#tooltip").classed("hidden", false);
+                 //d3.select("body").classed("hidden", true);
+                }});
+    
+
+
+    // Insert a legend
+    var legend = svg.selectAll(".legend")
+      //.data([0,5,10,20,50,100,205])
+
+      .data(["0"," 1-5"," 6-10","11-25","26-50","51-100","> 100"])
+      .enter().append("g")
+      .attr("class", "legend")
+      .attr("transform", function(d, i) { return "translate(" + (width + cellSize) + "," + (cellSize + i * cellSize) + ")"; });
+ 
+    legend.append("rect")
+      .attr("width", cellSize)
+      .attr("height", cellSize)
+      .style("fill", function(d, i) { return colors[i]; })
+      .attr("class","cell-border");
+ 
+    legend.append("text")
+      .attr("x", 38)
+      .attr("y", 15)  
+      .attr("dy", ".35em")  
+      .attr("class","legend")
+      .text(function(d) { return d; });          
+   
+    svg.append("text")
+          .attr("class", "label")
+          .attr("x", width + cellSize)
+          .attr("y", cellSize/2)
+          .attr("dy", ".35em")
+          .text("# Studies");
+    
+       
+       
+// Change ordering of cells
+
+  function sortbylabel(rORc,i,sortOrder){
+       var t = svg.transition().duration(3000);
+       var papers=[];
+       var sorted; // sorted is zero-based index
+       var test = d3.selectAll(".c"+rORc+i) 
+       test.filter(function(ce){
+            papers.push(ce.value);
+          })
+       ;
+       if(rORc=="r"){ // sort number of papers by intervention
+         sorted=d3.range(col_number).sort(function(a,b){ 
+          if(sortOrder){ 
+            return papers[b]-papers[a];
+          }
+          else{ 
+            return papers[a]-papers[b];
+          }
+         });
+         t.selectAll(".cell")
+           .attr("x", function(d) { 
+            //var col = parseInt(d3.select(this).attr("col"));
+            return sorted.indexOf(d.col-1) * cellSize; })
+           ;
+         t.selectAll(".colLabel")
+          .attr("y", function (d, i) { return sorted.indexOf(i) * cellSize; })
+         ;
+       }else{ // sort number of papers by outcome
+         sorted=d3.range(row_number).sort(function(a,b){
+          if(sortOrder){ 
+            return papers[b]-papers[a];
+          }
+          else{
+             
+            return papers[a]-papers[b];
+          }
+         });
+         t.selectAll(".cell")
+           .attr("y", function(d) { 
+            //var row = parseInt(d3.select(this).attr("row"));
+            return sorted.indexOf(d.row-1) * cellSize; 
+            })
+           ;
+         t.selectAll(".rowLabel")
+          .attr("y", function (d, i) { return sorted.indexOf(i) * cellSize; })
+         ;
+       }
+       d3.select("#tooltip").classed("hidden", true);
+  }
+
+ d3.select("#order").on("change", function() {
+  var newOrder = d3.select("#order").property("value"); 
+            changeOrder(newOrder, d3.select(this));
+        });
+  
+  function changeOrder(value){
+   if(value=="Intervention_number"){
+    var t = svg.transition().duration(3000);
+    t.selectAll(".cell")
+      .attr("x", function(d) { return hccol.indexOf(d.col) * cellSize; })
+      .attr("y", function(d) { return hcrow.indexOf(d.row) * cellSize; })
+      ;
+
+    /*t.selectAll(".rowLabel")
+      .attr("y", function (d, i) { return hcrow.indexOf(i+1) * cellSize; })
+      ;*/
+
+    t.selectAll(".colLabel")
+      .attr("y", function (d, i) { return hccol.indexOf(i+1) * cellSize; })
+      ;
+
+   }else if (value=="Outcome_number"){
+    var t = svg.transition().duration(3000);
+    t.selectAll(".cell")
+      .attr("y", function(d) { return (d.row - 1) * cellSize; })
+      ;
+
+    t.selectAll(".rowLabel")
+      .attr("y", function (d, i) { return i * cellSize; })
+      ;
+  
+   
+  } else if (value=="All"){
+    var t = svg.transition().duration(3000);
+    t.selectAll(".cell")
+      .attr("x", function(d) { return hccol.indexOf(d.col) * cellSize; })
+      .attr("y", function(d) { return hcrow.indexOf(d.row) * cellSize; })
+      ;
+
+    t.selectAll(".rowLabel")
+      .attr("y", function (d, i) { return hcrow.indexOf(i+1) * cellSize; })
+      ;
+
+    t.selectAll(".colLabel")
+      .attr("y", function (d, i) { return hccol.indexOf(i+1) * cellSize; })
+      ;
+    }
+    
+  }
+ 
+ d3.select("#tooltip").classed("hidden", true);
+
+});
+    </script>
+  </body>
+</html>
