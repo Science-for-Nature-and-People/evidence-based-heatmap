@@ -2,16 +2,16 @@
 ###  Get the DOIs and full citations for peer reviewed litterature             ###
 ###  from a title (with potential typos) using the crossref API                ###
 ###  Last updated: May 10, 2016                                                ###
-###  Author: Julien Brun (ORCID: 0000-0002-7751-6238) and Ian McCullough       ###
+###  Authors: Julien Brun (ORCID: 0000-0002-7751-6238) and Ian McCullough      ###
+###  Contributors: Justin Kroes and Kendall Miller                             ###
 ###  Contact: scicomp@nceas.ucsb.edu                                           ###
-###  Copyrights: NCEAS, UCSB                                                   ###
 ##################################################################################
 
-
-#source the function to ping the Crossref API
-#Load the crossref R wrapper
+#### Packages #### 
 library(rcrossref)
 
+
+#### FUNCTIONS ####
 
 #' Query the CrossRef API to full citation assoricated with a DOI. Handles error.
 #'
@@ -28,8 +28,6 @@ get_fullcitation <- function(doiq) {
            }
   )
 
-  # citation <- cr_cn(dois = doiq, locale = Sys.getlocale("LC_CTYPE"), format = "text", style = "apa")
-
   return(citation)
 }
 
@@ -40,17 +38,6 @@ get_fullcitation <- function(doiq) {
 #' @return The full query result from the Crossref API
 #' @examples
 #' get_cr("Use of film for community conservation education in primate habitat countries")
-#get_cr <- function(titleq) {
-#  tryCatch(q <- cr_search(query = titleq, rows = 5, sort = "score"),
-#           error = function(err) {
-#             print(err)
-#             q <- ""
-#             return(q)
-#           }
-#  )
-#}
-
-## Ian: Due to impending deprecation of cr_search, trying cr_works instead
 get_cr <- function(titleq) {
   tryCatch(q <- cr_works(query = titleq, limit = 5, sort = "score"),
            error = function(err) {
@@ -83,7 +70,6 @@ getdoi <- function(title, nattempts = 5) {
     fullCitation <-NA
   } else {
     # Query the API
-    # query <- cr_search(query = title, rows = 5, sort = "score")
     query <- get_cr(title)
     if (query == ""){
       j = 0
@@ -99,12 +85,10 @@ getdoi <- function(title, nattempts = 5) {
       if (query$score[1] > 2.0){  ## THRESHOLD, might want to try other values based on the whole dataset
         doi <- query$doi[1]
         print(doi)
-        #doi <- strsplit(doi,">")[[1]][2] # take only the doi without the html tags
         title.new <- query$title[1]
         #queryable_doi = strsplit(doi,"http://dx.doi.org/")[[1]][2] #IM: with cr_works, the returned DOI seems already to have http://dx.doi.org/ removed
         queryable_doi = doi #added by IM to make fullCitation line run
         #It seems sometimes the API is unresponsive -> squeezing 5 attemps, need to be improved
-        # fullCitation <- cr_cn(dois = queryable_doi, locale = "en-US", format = "text", style = "apa")
         fullCitation <- get_fullcitation(queryable_doi)
         #if the API retuned the 500 error, try 5 more time with 5sec pause in between
         if (is.null(fullCitation)) {
