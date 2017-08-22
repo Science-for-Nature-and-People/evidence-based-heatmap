@@ -1,0 +1,21 @@
+th {
+  padding: 12px;
+  font-family: "Droid Sans Mono", Segoe, "Segoe UI", "DejaVu Sans", Verdana, sans-serif;
+  font-size: 24px;
+  color: #B0B0B0;
+}
+
+td
+{   font-family: "Times New Roman", Times, serif;  font-size: 14px;
+  font-size: 0.875em; /* 14px/16=0.875em */
+  padding: 5px;
+ }
+ 
+a {
+  color: #00441b;
+  text-decoration: none;
+}
+
+a:hover{
+ color: #74c476;  
+}
