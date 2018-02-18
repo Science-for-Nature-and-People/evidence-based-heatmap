@@ -101,7 +101,7 @@ doiFunction = function(data.file) {
   DOI_title_join <- data.file %>% select(aid, Title, Pub_year, DOI ,Fullcitation)
   DOI_title_join <- unique(DOI_title_join)
   # create full reference column
-  DOI_title_join$References = paste('<a href =',shQuote(paste0("http://dx.doi.org/",DOI_title_join$DOI)),'>',DOI_title_join$Fullcitation,'</a>')
+  DOI_title_join$References = paste('<a href =',shQuote(paste0("https://doi.org/",DOI_title_join$DOI)),'>',DOI_title_join$Fullcitation,'</a>')
   
   ### Join prior table with outcomes/interventions to table with DOIs
   common_field3 = intersect(names(aidintout), names(DOI_title_join))
