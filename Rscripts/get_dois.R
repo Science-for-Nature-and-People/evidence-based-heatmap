@@ -86,7 +86,7 @@ getdoi <- function(title, nattempts = 5) {
         doi <- query$doi[1]
         print(doi)
         title.new <- query$title[1]
-        #queryable_doi = strsplit(doi,"http://dx.doi.org/")[[1]][2] #IM: with cr_works, the returned DOI seems already to have http://dx.doi.org/ removed
+        #queryable_doi = strsplit(doi,"https://doi.org/")[[1]][2] #IM: with cr_works, the returned DOI seems already to have https://doi.org/ removed
         queryable_doi = doi #added by IM to make fullCitation line run
         #It seems sometimes the API is unresponsive -> squeezing 5 attemps, need to be improved
         fullCitation <- get_fullcitation(queryable_doi)
